@@ -5,28 +5,42 @@
 
 struct LeastSquares {
 
-    LeastSquares(double *data, int sz) : data_(data), sz_(sz) {}
+    LeastSquares(double *data, int sz, int proc, int nproc) :
+        data_(data), sz_(sz), proc_(proc), nproc_(nproc) {
+        start = (sz / nproc) * proc;
+        end = start + (sz / nproc) > sz ? sz : start + (sz / nproc);
+    }
 
     template <typename T>
     bool operator()(const T* parameters, T* cost) const {
         const T x = parameters[0];
+        int i;
 
-        cost[0] = cost[0] * 0.0;
-        for (int i = 0; i < sz_; ++i) {
-            cost[0] += data_[i] * x * data_[i] * x;
+        T sum = T(0.0);
+
+        for (i = start; i < end; ++i) {
+            sum += data_[i] * data_[i] * x * x;
         }
+
+        MPI_Reduce(&sum, &cost[0], 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
 
         return true;
     }
 
-    static ceres::CostFunction* Create(double *data, int sz) {
+    static ceres::FirstOrderFunction* Create(double *data, int sz, int proc, int nproc) {
         constexpr int kNumParameters = 1;
-        return new ceres::AutoDiffCostFunction<LeastSquares, kNumParameters, 1>(
-            new LeastSquares(data, sz));
+        return new ceres::AutoDiffFirstOrderFunction<LeastSquares, kNumParameters>(
+            new LeastSquares(data, sz, proc, nproc));
     }
 
     double *data_;
     int sz_;
+
+    int proc_;
+    int nproc_;
+
+    int start;
+    int end;
 };
 
 int load_data(char *filename, double *&data, int &sz) {
@@ -66,7 +80,7 @@ int load_data(char *filename, double *&data, int &sz) {
 }
 
 int main(int argc, char **argv) {
-    int size, rank, rc;
+    int proc, nproc, rc;
     int data_size;
 
     int name_len;
@@ -83,13 +97,13 @@ int main(int argc, char **argv) {
     // Initialize the MPI environment
     MPI_Init(NULL, NULL);
 
-    MPI_Comm_size(MPI_COMM_WORLD, &size);
-    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &nproc);
+    MPI_Comm_rank(MPI_COMM_WORLD, &proc);
 
     MPI_Get_processor_name(processor_name, &name_len);
 
     printf("Hello world from processor %s, rank %d out of %d processors\n",
-           processor_name, rank, size);
+           processor_name, proc, nproc);
 
     rc = load_data(argv[1], data, sz);
     if (rc != MPI_SUCCESS) {
@@ -97,21 +111,15 @@ int main(int argc, char **argv) {
         exit(rc);
     }
 
-    double initial_x = 5.0;
-    double x = initial_x;
+    double parameters[1] = {-1.2};
 
-    ceres::Problem problem;
+    ceres::GradientProblem problem(LeastSquares::Create(data, sz, proc, nproc));
 
-    ceres::CostFunction *cost_function = LeastSquares::Create(data, sz);
+    ceres::GradientProblemSolver::Options options;
+    ceres::GradientProblemSolver::Summary summary;
+    ceres::Solve(options, problem, parameters, &summary);
 
-    problem.AddResidualBlock(cost_function, nullptr, &x);
-
-    ceres::Solver::Options options;
-    options.linear_solver_type = ceres::DENSE_QR;
-    ceres::Solver::Summary summary;
-    ceres::Solve(options, &problem, &summary);
-
-    std::cout << summary.BriefReport() << std::endl;
+    std::cout << summary.FullReport() << std::endl;
     // Finalize the MPI environment.
     MPI_Finalize();
 }
