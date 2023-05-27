@@ -13,7 +13,7 @@ MPICPP := mpic++
 # Compilation flags
 
 _cppflags :=
-# _cppflags += -Wall
+_cppflags += -Wall
 _cppflags += -MMD -MP		# Generate dependency files
 _cppflags += -I /usr/include/eigen3
 _cppflags += -fopenmp

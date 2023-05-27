@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <vector>
 #include <ceres/ceres.h>
+#include <ceres/autodiff_first_order_function.h>
 
 struct LeastSquares {
 
@@ -63,9 +64,6 @@ int load_data(char *filename, double *&data, int &sz) {
     if (data == nullptr)
         return -1;
 
-    printf("%p\n", data);
-    fflush(stdout);
-
     rc = MPI_File_read_all(data_fh, data, data_sz_bytes, MPI_BYTE, &status);
     if (rc != MPI_SUCCESS)
         return rc;
@@ -81,7 +79,6 @@ int load_data(char *filename, double *&data, int &sz) {
 
 int main(int argc, char **argv) {
     int proc, nproc, rc;
-    int data_size;
 
     int name_len;
     char processor_name[MPI_MAX_PROCESSOR_NAME];
@@ -102,9 +99,6 @@ int main(int argc, char **argv) {
 
     MPI_Get_processor_name(processor_name, &name_len);
 
-    printf("Hello world from processor %s, rank %d out of %d processors\n",
-           processor_name, proc, nproc);
-
     rc = load_data(argv[1], data, sz);
     if (rc != MPI_SUCCESS) {
         MPI_Finalize();
@@ -120,6 +114,7 @@ int main(int argc, char **argv) {
     ceres::Solve(options, problem, parameters, &summary);
 
     std::cout << summary.FullReport() << std::endl;
+
     // Finalize the MPI environment.
     MPI_Finalize();
 }
