@@ -14,8 +14,9 @@ MPICPP := mpic++
 
 _cppflags :=
 # _cppflags += -Wall
-_cflags += -MMD -MP		# Generate dependency files
+_cppflags += -MMD -MP		# Generate dependency files
 _cppflags += -I /usr/include/eigen3
+_cppflags += -fopenmp
 
 _ldflags := -lceres
 _ldflags += -lglog
