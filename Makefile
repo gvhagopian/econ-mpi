@@ -2,12 +2,33 @@
 # Avoid builtin rules and variables
 MAKEFLAGS += -rR
 
-PROGS = multi-sim
-all: $(PROGS)
+PROG = multi-sim
+all: $(PROG)
 
 
 # Compilation tools
 MPICPP := mpic++
+
+
+# Compilation flags
+
+_cppflags :=
+# _cppflags += -Wall
+_cflags += -MMD -MP		# Generate dependency files
+_cppflags += -I /usr/include/eigen3
+
+_ldflags := -lceres
+_ldflags += -lglog
+
+CPPFLAGS := $(strip $(_cppflags))
+LDFLAGS := $(strip $(_ldflags))
+
+
+# Object files
+_objs := multi-sim.o
+
+OBJS := $(strip $(_objs))
+DEPS := $(patsubst %.o,%.d,$(OBJS))
 
 
 # Compilation rules
@@ -16,15 +37,19 @@ ifneq ($(V),1)
 Q = @
 endif
 
-multi-sim: main.cpp
+${PROG}: ${OBJS}
 	@echo "MPICPP	$(notdir $@)"
-	$(Q)$(MPICPP) -o $@ $<
+	$(Q)$(MPICPP) $(CFLAGS) -o $@ $^ $(LDFLAGS)
+
+$(OBJS): %.o: %.cpp
+	@echo "MPICPP	$(notdir $@)"
+	$(Q)$(MPICPP) -c $(CPPFLAGS) -o $@ $<
 
 
 ## Cleaning rules
 clean: FORCE
 	@echo "CLEAN"
-	$(Q)rm -f $(PROGS)
+	$(Q)rm -f $(PROG) $(OBJS) $(DEPS)
 
 
 ## Rules configuration
