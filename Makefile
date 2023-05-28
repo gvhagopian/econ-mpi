@@ -18,7 +18,8 @@ _cppflags += -MMD -MP		# Generate dependency files
 _cppflags += -I /usr/include/eigen3
 _cppflags += -fopenmp
 
-_ldflags := -lceres
+_ldflags := -lgomp
+_ldflags += -lceres
 _ldflags += -lglog
 
 CPPFLAGS := $(strip $(_cppflags))
